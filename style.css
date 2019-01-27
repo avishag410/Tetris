@@ -12,12 +12,13 @@ body {
     border-style: solid;
 
     width: 650px;
-    height: 650px;
+    height: 750px;
     position: absolute; 
-    /* margin: 20px; */
     border-radius: 7px;
     right: 100px;
+    top: 20px;
     box-sizing: content-box;
+    
 }
 
 .block_shape {
@@ -25,6 +26,7 @@ body {
     height: 50px;
     position: relative;
     background-color: black;
-    /* border-style: solid; */
     margin: 0%;
+    box-sizing: content-box;
 }
+
