@@ -1,19 +1,18 @@
 class boardHTMLElements {
 
-    constructor(gameBoardElementId, blockClass, blockElementType = "div") {
+    constructor(gameBoardElementId = "game_board") {
         this.board = document.getElementById(gameBoardElementId)
         this.gameBoardElementId = gameBoardElementId
-        this.blockElementType = blockElementType
-        this.blockClass = blockClass 
+         
         this.rowBlocksNum = 13
         this.colBlockNum = 15
     }
 
-    createBlockElement() {
-        let block = document.createElement(this.blockElementType) 
-        block.style.className = this.blockClass
-        return block
-    }
+    // createBlockElement() {
+    //     let block = document.createElement(this.blockElementType) 
+    //     block.style.className = this.blockClass
+    //     return block
+    // }
 
     get boardWidthPx() {
         return document.getElementsByClassName(this.gameBoardElementId)[0].clientWidth
@@ -32,25 +31,17 @@ class boardHTMLElements {
     }
 
     moveBlock(block, x, y) {
-        console.log(`x: ${x} y: ${y} this.blockWidthPx: ${this.blockWidthPx}`)
-        block.style.left = x * this.blockWidthPx + 'px'
-        block.style.top = y * this.blockHeigthPx + 'px'
-
-
+        console.log(`x: ${x} y: ${y} `)
+        block.blockElem.style.left = x * this.blockWidthPx + 'px'
+        block.blockElem.style.top = y * this.blockHeigthPx + 'px'
     }
 
-    addBlock(x, y) {
-        let blockElem = document.createElement("div")
-        blockElem.className = this.blockClass
-        
-        this.board.appendChild(blockElem)
-        this.moveBlock(blockElem, x, y)
-
-        return blockElem
+    addBlock(block) {
+        this.board.appendChild(block.blockElem)
     }
 
     removeBlock(block) {
-        this.board.removeChild(block)
+        this.board.removeChild(block.blockElem)
     }
 
 }
@@ -61,85 +52,135 @@ class boardBlocksGrid {
     constructor(boardHTMLElements) {
         const boardWidthBlocks = boardHTMLElements.boardWidthPx / boardHTMLElements.blockWidthPx
         const boardHeigthBlocks = boardHTMLElements.boardHeigthPx / boardHTMLElements.blockHeigthPx
-        this.boardBlocksGrid = [...Array(boardWidthBlocks)].map(e => Array(boardHeigthBlocks).fill({isFilled: false, block: null}));
+        this.boardBlocksGrid = [...Array(boardWidthBlocks)].map(e => Array(boardHeigthBlocks).fill(null));
         this.htmlBoard = boardHTMLElements
     }
 
-    addBlock(x, y) {
-        
-        this.boardBlocksGrid[x][y] = true
-        // return this.htmlBoard.addBlock(x, y)
+    canIMoveTo(x, y) {
+        if(x >= this.htmlBoard.rowBlocksNum ||
+            x < 0 ||
+             y >= this.htmlBoard.colBlockNum ||
+             y < 0) 
+            return false
+        else
+            return true
     }
     
+    addBlock(x = 0, y = 0) {
+        let block = new Block()
+        this.htmlBoard.addBlock(block)
+        this.boardBlocksGrid[0][0] = block
+        
+        this.moveBlock(block, 0, 0, x, y)
+
+        return block
+    }
+
     removeBlock(x, y) {
-        this.boardBlocksGrid[x][y] = false
+        if(this.canIMoveTo(x, y) && 
+            this.boardBlocksGrid[x][y] !== null) {
+
+            this.htmlBoard.removeBlock(this.boardBlocksGrid[x][y]) 
+            this.boardBlocksGrid[x][y] = null
+        }
     }
     
     /* Check if we can move block from old pos to new pos, and move it */
-    changeBlockPotision(block, oldX, oldY, newX, newY) {
+    moveBlock(block, oldX, oldY, newX, newY) {
 
         // check that block doesnt exceed board limits
-        if(newX >= boardHTMLElements.boardWidthBlocks ||
-            newX < 0 ||
-             newY >= boardHTMLElements.boardHeigthBlocks ||
-             newY < 0) 
-            return false
-            
-        this.boardBlocksGrid[oldX][oldY] = false
-        this.boardBlocksGrid[newX][newY] = true
-        this.htmlBoard.moveBlock(block, newX, newY)
+        if(this.canIMoveTo(newX, newY)) {
+            this.boardBlocksGrid[oldX][oldY] = null
+            this.boardBlocksGrid[newX][newY] = block
+            this.htmlBoard.moveBlock(block, newX, newY)
 
-        return true
+            return true
+        }
+        return false
     }
     
+    checkFullRow() {
+
+    }
 }
 
 class Block {
-    constructor(boardBlocksGrid, x = 0, y = 0) {
-        this.position = [x, y]
-        this.boardGrid = boardBlocksGrid
-        this.blockHTMLElem = null
+    constructor(blockClass = "block_shape", blockElementType = "div") {
+        this.blockElem = document.createElement(blockElementType)
+        this.blockElem.className = blockClass
+    }
+}
+
+class Shape {
+    constructor(boardGrid) {
+        this.boardGrid = boardGrid
+        
+        const blocksPerShape = 4
+        this.shapeBlocks = new Array(blocksPerShape).fill({block:null, pos:{x:0, y:0}})
+
+        // create new block for each element in shapeBlocks
+        // change only .block
+        for(let i = 0, newBlock, backupPosition; i < blocksPerShape; i++){
+            backupPosition = this.shapeBlocks[i].pos
+            newBlock = this.boardGrid.addBlock()
+            this.shapeBlocks[i] = {block: newBlock, pos: backupPosition}
+        }
+        
     }
 
-    showBlock() {
-        this.blockHTMLElem = this.boardGrid.addBlock(this.position[0], this.position[1])
+    // use as an annonymous !!
+    canIMoveShapeTo(newPosArr) {
+        const reduceAcc = (accMoves, newPos) => {
+            return accMoves && this.boardGrid.canIMoveTo(newPos.x, newPos.y) 
+        }
+
+        return newPosArr.reduce(reduceAcc, true)
     }
 
-    setPosition(x, y) {
-        if(this.blockHTMLElem !== null) {
-            if(this.boardGrid.changeBlockPotision(this.blockHTMLElem,
-                 this.position[0], this.position[1], x, y))
-                this.position = [x, y]
+    setPosition(newPosArr) {
+        
+        // copy pos element from newPosArr into pos in shapeBlocks
+        // change only .pos
+        for(let i = 0, currBlock; i < this.shapeBlocks.length; i++) {
+            currBlock = this.shapeBlocks[i]
+            
+            this.boardGrid.moveBlock(currBlock.block, currBlock.pos.x, currBlock.pos.y,
+                newPosArr[i].x, newPosArr[i].y)
+
+            const copyBlockElem = currBlock.block 
+            this.shapeBlocks[i] = {block: copyBlockElem, pos: newPosArr[i]} 
         }
     }
 
-    moveLeft() {
-        this.setPosition(this.position[0] - 1, this.position[1])
-    }
+    move(direction){
+        switch(direction){
+            case 'R':
+                let newPosArr = this.shapeBlocks.map((shapeBlock) => {return {x: shapeBlock.pos.x + 1, y: shapeBlock.pos.y}})
+                if(canIMoveShapeTo(newPosArr))
+                     setPosition(newPosArr)
 
-    moveRight() {
-        this.setPosition(this.position[0] + 1, this.position[1])
-    }
+                break;
+            default:
+                return false
+        }
 
-    moveUp() {
-        this.setPosition(this.position[0], this.position[1] - 1)
     }
-
-    moveDown() {
-        this.setPosition(this.position[0], this.position[1] + 1)
-    }
-
-    remove() {
-        this.boardGrid.removeBlock(this.position[0], this.position[1])
-    }
-    
 }
 
 
-let elems = new boardHTMLElements("game_board", "block_shape")
+let elems = new boardHTMLElements()
 let grid = new boardBlocksGrid(elems)
-let block = new Block(grid, 0, 0)
-block.showBlock()
-// block.setPosition(1,1)
-block.moveLeft()
-block.moveDown()
+
+let s = new Shape(grid)
+s.setPosition([{x:4, y:4}, {x:5, y:5}, {x:6, y:6}, {x:7, y:7}])
+// s.move('R')
+
+
+
+
+
+
+
+
+
+
